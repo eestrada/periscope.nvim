@@ -1,16 +1,16 @@
-local actions = require "telescope.actions"
-local action_set = require "telescope.actions.set"
-local action_state = require "telescope.actions.state"
-local finders = require "telescope.finders"
-local make_entry = require "telescope.make_entry"
+local actions = require "periscope.actions"
+local action_set = require "periscope.actions.set"
+local action_state = require "periscope.actions.state"
+local finders = require "periscope.finders"
+local make_entry = require "periscope.make_entry"
 local Path = require "plenary.path"
-local pickers = require "telescope.pickers"
-local previewers = require "telescope.previewers"
-local p_window = require "telescope.pickers.window"
-local state = require "telescope.state"
-local utils = require "telescope.utils"
+local pickers = require "periscope.pickers"
+local previewers = require "periscope.previewers"
+local p_window = require "periscope.pickers.window"
+local state = require "periscope.state"
+local utils = require "periscope.utils"
 
-local conf = require("telescope.config").values
+local conf = require("periscope.config").values
 
 -- Makes sure aliased options are set correctly
 local function apply_cwd_only_aliases(opts)
@@ -349,58 +349,91 @@ internal.symbols = function(opts)
     :find()
 end
 
+local function dump(o)
+  if type(o) == 'table' then
+    local s = '{ '
+    for k, v in pairs(o) do
+      if type(k) ~= 'number' then k = '"' .. k .. '"' end
+      s = s .. '[' .. k .. '] = ' .. dump(v) .. ','
+    end
+    return s .. '} '
+  else
+    return tostring(o)
+  end
+end
+
+local function map(tbl, func)
+  local new_table = {}
+  for _, value in ipairs(tbl) do
+    table.insert(new_table, func(value))
+  end
+  return new_table
+end
+
 internal.commands = function(opts)
-  pickers
-    .new(opts, {
-      prompt_title = "Commands",
-      finder = finders.new_table {
-        results = (function()
-          local command_iter = vim.api.nvim_get_commands {}
-          local commands = {}
+  local command_iter = vim.api.nvim_get_commands {}
+  local commands = {}
 
-          for _, cmd in pairs(command_iter) do
-            table.insert(commands, cmd)
-          end
+  for _, cmd in pairs(command_iter) do
+    table.insert(commands, cmd)
+  end
 
-          local need_buf_command = vim.F.if_nil(opts.show_buf_command, true)
+  local need_buf_command = vim.F.if_nil(opts.show_buf_command, true)
 
-          if need_buf_command then
-            local buf_command_iter = vim.api.nvim_buf_get_commands(0, {})
-            buf_command_iter[true] = nil -- remove the redundant entry
-            for _, cmd in pairs(buf_command_iter) do
-              table.insert(commands, cmd)
-            end
-          end
-          return commands
-        end)(),
+  if need_buf_command then
+    local buf_command_iter = vim.api.nvim_buf_get_commands(0, {})
+    buf_command_iter[true] = nil -- remove the redundant entry
+    for _, cmd in pairs(buf_command_iter) do
+      table.insert(commands, cmd)
+    end
+  end
 
-        entry_maker = opts.entry_maker or make_entry.gen_from_commands(opts),
-      },
-      sorter = conf.generic_sorter(opts),
-      attach_mappings = function(prompt_bufnr)
-        actions.select_default:replace(function()
-          local selection = action_state.get_selected_entry()
-          if selection == nil then
-            utils.__warn_no_selection "builtin.commands"
-            return
-          end
+  local max_len = vim.fn.max(map(commands, function(c) return #c.name end))
 
-          actions.close(prompt_bufnr)
-          local val = selection.value
-          local cmd = string.format([[:%s ]], val.name)
+  -- vim.notify(string.format('Max length of names: %i', max_len))
 
-          if val.nargs == "0" then
-            local cr = vim.api.nvim_replace_termcodes("<cr>", true, false, true)
-            cmd = cmd .. cr
-          end
-          vim.cmd [[stopinsert]]
-          vim.api.nvim_feedkeys(cmd, "t", false)
-        end)
+  -- vim.notify(string.format('what is the commands table: %q', dump(commands)))
 
-        return true
-      end,
-    })
-    :find()
+  -- vim.fn.sort(commands, function(item_a, item_b)
+  --   if item_a.name < item_b.name then
+  --     return -1
+  --   elseif item_a.name > item_b.name then
+  --     return 1
+  --   elseif item_a.name == item_b.name then
+  --     return 0
+  --   end
+  -- end)
+
+  local opts = {
+    -- Bake 'Periscope' into name while we initially test. Rip it out later.
+    prompt = "Periscope Commands:",
+    format_item = function(item)
+      local padded_name = item.name
+      while #padded_name < max_len do
+        padded_name = padded_name .. ' '
+      end
+      return string.format(
+        '%s | %s | %s',
+        item.bang and '!' or ' ',
+        padded_name,
+        item.definition)
+    end
+  }
+
+  vim.ui.select(commands, opts, function(item)
+    if not item then
+      utils.__warn_no_selection "builtin.commands"
+    else
+      local cmd = string.format([[:%s ]], item.name)
+
+      if item.nargs == "0" then
+        local cr = vim.api.nvim_replace_termcodes("<cr>", true, false, true)
+        cmd = cmd .. cr
+      end
+      vim.cmd [[stopinsert]]
+      vim.api.nvim_feedkeys(cmd, "t", false)
+    end
+  end)
 end
 
 internal.quickfix = function(opts)

@@ -529,8 +529,8 @@ utils.notify = function(funname, opts)
     error("Invalid error level", 2)
   end
   local notify_fn = opts.once and vim.notify_once or vim.notify
-  notify_fn(string.format("[telescope.%s]: %s", funname, opts.msg), level, {
-    title = "telescope.nvim",
+  notify_fn(string.format("[periscope.%s]: %s", funname, opts.msg), level, {
+    title = "periscope.nvim",
   })
 end
 
