@@ -43,7 +43,7 @@ internal.builtin = function(opts)
 
   local objs = {}
 
-  for k, v in pairs(require "telescope.builtin") do
+  for k, v in pairs(require "periscope.builtin") do
     local debug_info = debug.getinfo(v)
     table.insert(objs, {
       filename = string.sub(debug_info.source, 2),
@@ -51,11 +51,11 @@ internal.builtin = function(opts)
     })
   end
 
-  local title = "Telescope Builtin"
+  local title = "Periscope Builtin"
 
   if opts.include_extensions then
-    title = "Telescope Pickers"
-    for ext, funcs in pairs(require("telescope").extensions) do
+    title = "Periscope Pickers"
+    for ext, funcs in pairs(require("periscope").extensions) do
       for func_name, func_obj in pairs(funcs) do
         -- Only include exported functions whose name doesn't begin with an underscore
         if type(func_obj) == "function" and string.sub(func_name, 0, 1) ~= "_" then
@@ -114,10 +114,10 @@ internal.builtin = function(opts)
             local split_string = vim.split(selection.text, " : ")
             local ext = split_string[1]
             local func = split_string[2]
-            require("telescope").extensions[ext][func](picker_opts)
+            require("periscope").extensions[ext][func](picker_opts)
           else
-            -- Call appropriate telescope builtin
-            require("telescope.builtin")[selection.text](picker_opts)
+            -- Call appropriate periscope builtin
+            require("periscope.builtin")[selection.text](picker_opts)
           end
         end)
         return true
@@ -437,6 +437,10 @@ internal.commands = function(opts)
 end
 
 internal.quickfix = function(opts)
+  opts = opts or {}
+  local show_line = vim.F.if_nil(opts.show_line, true)
+  local hidden = utils.is_path_hidden(opts)
+
   local qf_identifier = opts.id or vim.F.if_nil(opts.nr, "$")
   local locations = vim.fn.getqflist({ [opts.id and "id" or "nr"] = qf_identifier, items = true }).items
 
@@ -444,17 +448,46 @@ internal.quickfix = function(opts)
     return
   end
 
-  pickers
-    .new(opts, {
-      prompt_title = "Quickfix",
-      finder = finders.new_table {
-        results = locations,
-        entry_maker = opts.entry_maker or make_entry.gen_from_quickfix(opts),
-      },
-      previewer = conf.qflist_previewer(opts),
-      sorter = conf.generic_sorter(opts),
-    })
-    :find()
+  local make_display = function(entry)
+    local filename = vim.fn.bufname(entry.bufnr)
+    local display_filename = utils.transform_path(opts, filename)
+    local display_string = string.format("%s:%d:%d", display_filename, entry.lnum, entry.col)
+    if hidden then
+      display_string = string.format("%4d:%2d", entry.lnum, entry.col)
+    end
+
+    if show_line then
+      local text = entry.text
+      if opts.trim_text then
+        text = vim.trim(text)
+      end
+      text = text:gsub(".* | ", "")
+      display_string = display_string .. ":" .. text
+    end
+
+    return display_string
+  end
+
+  vim.ui.select(locations, { prompt = "Quickfix (Periscope)", format_item = make_display, kind = 'quickfix' },
+    function(item, idx)
+      if item == nil then
+        return
+      end
+
+      vim.cmd(string.format(':edit +call\\ cursor(%s,%s) %s', item.lnum, item.col, vim.fn.bufname(item.bufnr)))
+    end)
+
+  -- pickers
+  --   .new(opts, {
+  --     prompt_title = "Quickfix",
+  --     finder = finders.new_table {
+  --       results = locations,
+  --       entry_maker = opts.entry_maker or make_entry.gen_from_quickfix(opts),
+  --     },
+  --     previewer = conf.qflist_previewer(opts),
+  --     sorter = conf.generic_sorter(opts),
+  --   })
+  --   :find()
 end
 
 internal.quickfixhistory = function(opts)
@@ -1281,7 +1314,7 @@ internal.filetypes = function(opts)
         actions.select_default:replace(function()
           local selection = action_state.get_selected_entry()
           if selection == nil then
-            print "[telescope] Nothing currently selected"
+            print "[periscope] Nothing currently selected"
             return
           end
 
