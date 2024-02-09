@@ -371,6 +371,8 @@ local function map(tbl, func)
 end
 
 internal.commands = function(opts)
+  opts = opts or {}
+
   local command_iter = vim.api.nvim_get_commands {}
   local commands = {}
 
@@ -403,22 +405,21 @@ internal.commands = function(opts)
   --     return 0
   --   end
   -- end)
+  --
 
-  local opts = {
-    -- Bake 'Periscope' into name while we initially test. Rip it out later.
-    prompt = "Periscope Commands:",
-    format_item = function(item)
-      local padded_name = item.name
-      while #padded_name < max_len do
-        padded_name = padded_name .. ' '
-      end
-      return string.format(
-        '%s | %s | %s',
-        item.bang and '!' or ' ',
-        padded_name,
-        item.definition)
+  -- Bake 'Periscope' into name while we initially test. Rip it out later.
+  opts.prompt = opts.prompt or "Periscope Commands:"
+  opts.format_item = opts.format_item or function(item)
+    local padded_name = item.name
+    while #padded_name < max_len do
+      padded_name = padded_name .. ' '
     end
-  }
+    return string.format(
+      '%s | %s | %s',
+      item.bang and '!' or ' ',
+      padded_name,
+      item.definition)
+  end
 
   vim.ui.select(commands, opts, function(item)
     if not item then
