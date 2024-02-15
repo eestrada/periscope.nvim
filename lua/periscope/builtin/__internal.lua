@@ -392,23 +392,8 @@ internal.commands = function(opts)
 
   local max_len = vim.fn.max(map(commands, function(c) return #c.name end))
 
-  -- vim.notify(string.format('Max length of names: %i', max_len))
-
-  -- vim.notify(string.format('what is the commands table: %q', dump(commands)))
-
-  -- vim.fn.sort(commands, function(item_a, item_b)
-  --   if item_a.name < item_b.name then
-  --     return -1
-  --   elseif item_a.name > item_b.name then
-  --     return 1
-  --   elseif item_a.name == item_b.name then
-  --     return 0
-  --   end
-  -- end)
-  --
-
   -- Bake 'Periscope' into name while we initially test. Rip it out later.
-  opts.prompt = opts.prompt or "Periscope Commands:"
+  opts.prompt = opts.prompt or "(Periscope) Commands:"
   opts.format_item = opts.format_item or function(item)
     local padded_name = item.name
     while #padded_name < max_len do
@@ -469,26 +454,14 @@ internal.quickfix = function(opts)
     return display_string
   end
 
-  vim.ui.select(locations, { prompt = "Quickfix (Periscope)", format_item = make_display, kind = 'quickfix' },
-    function(item, idx)
+  vim.ui.select(locations, { prompt = "(Periscope) Quickfix:", format_item = make_display, kind = 'quickfix' },
+    function(item)
       if item == nil then
-        return
+        utils.__warn_no_selection "builtin.quickfix"
+      else
+        vim.cmd(string.format(':edit +call\\ cursor(%s,%s) %s', item.lnum, item.col, vim.fn.bufname(item.bufnr)))
       end
-
-      vim.cmd(string.format(':edit +call\\ cursor(%s,%s) %s', item.lnum, item.col, vim.fn.bufname(item.bufnr)))
     end)
-
-  -- pickers
-  --   .new(opts, {
-  --     prompt_title = "Quickfix",
-  --     finder = finders.new_table {
-  --       results = locations,
-  --       entry_maker = opts.entry_maker or make_entry.gen_from_quickfix(opts),
-  --     },
-  --     previewer = conf.qflist_previewer(opts),
-  --     sorter = conf.generic_sorter(opts),
-  --   })
-  --   :find()
 end
 
 internal.quickfixhistory = function(opts)
@@ -1408,30 +1381,17 @@ internal.spell_suggest = function(opts)
   local cursor_word = vim.fn.expand "<cword>"
   local suggestions = vim.fn.spellsuggest(cursor_word)
 
-  pickers
-    .new(opts, {
-      prompt_title = "Spelling Suggestions",
-      finder = finders.new_table {
-        results = suggestions,
-      },
-      sorter = conf.generic_sorter(opts),
-      attach_mappings = function(prompt_bufnr)
-        actions.select_default:replace(function()
-          local selection = action_state.get_selected_entry()
-          if selection == nil then
-            utils.__warn_no_selection "builtin.spell_suggest"
-            return
-          end
-
-          action_state.get_current_picker(prompt_bufnr)._original_mode = "i"
-          actions.close(prompt_bufnr)
-          vim.cmd("normal! ciw" .. selection[1])
-          vim.cmd "stopinsert"
-        end)
-        return true
-      end,
-    })
-    :find()
+  vim.ui.select(
+    suggestions,
+    { prompt = string.format("(Periscope) Spelling Suggestions for '%s': ", cursor_word), kind = 'spellsuggest' },
+    function(item, _)
+      if item == nil then
+        utils.__warn_no_selection "builtin.spell_suggest"
+      else
+        vim.cmd("normal! ciw" .. item)
+        vim.cmd("stopinsert")
+      end
+    end)
 end
 
 internal.tagstack = function(opts)
