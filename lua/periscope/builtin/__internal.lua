@@ -597,6 +597,14 @@ internal.oldfiles = function(opts)
     end, results)
   end
 
+  -- vim.ui.select(results, { prompt = "(Periscope) Oldfiles", format_item = tostring, kind = "file" }, function(item, _)
+  --   if item == nil then
+  --     utils.__warn_no_selection "builtin.oldfiles"
+  --   else
+  --     vim.notify("What is the file output? " .. dump(item), vim.log.levels.INFO)
+  --   end
+  -- end)
+
   pickers
     .new(opts, {
       prompt_title = "Oldfiles",
