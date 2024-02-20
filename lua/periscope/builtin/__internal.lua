@@ -607,6 +607,11 @@ internal.oldfiles = function(opts)
 end
 
 internal.command_history = function(opts)
+  opts = opts or {}
+  opts.prompt = opts.prompt or "(Periscope) Command History"
+  opts.format_item = opts.format_item or tostring
+  opts.kind = opts.kind or "command"
+
   local history_string = vim.fn.execute "history cmd"
   local history_list = vim.split(history_string, "\n")
 
@@ -627,23 +632,14 @@ internal.command_history = function(opts)
     end
   end
 
-  pickers
-    .new(opts, {
-      prompt_title = "Command History",
-      finder = finders.new_table(results),
-      sorter = conf.generic_sorter(opts),
-
-      attach_mappings = function(_, map)
-        actions.select_default:replace(actions.set_command_line)
-        map({ "i", "n" }, "<C-e>", actions.edit_command_line)
-
-        -- TODO: Find a way to insert the text... it seems hard.
-        -- map('i', '<C-i>', actions.insert_value, { expr = true })
-
-        return true
-      end,
-    })
-    :find()
+  vim.ui.select(results, opts, function (item, _)
+    if item == nil then
+      utils.__warn_no_selection "builtin.command_history"
+    else
+      -- vim.notify("What does the item look like? " .. dump(item), vim.log.levels.INFO)
+      vim.cmd(item)
+    end
+  end)
 end
 
 internal.search_history = function(opts)
