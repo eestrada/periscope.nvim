@@ -560,6 +560,15 @@ internal.loclist = function(opts)
     :find()
 end
 
+local function make_path_relative(p)
+  local cwd = vim.loop.cwd()
+  if string.sub(p, 1, #cwd) == cwd and string.sub(p, #cwd + 1, #cwd + 1) == "/" then
+    return string.sub(p, #cwd + 2)
+  else
+    return p
+  end
+end
+
 internal.oldfiles = function(opts)
   opts = apply_cwd_only_aliases(opts)
   opts.include_current_session = vim.F.if_nil(opts.include_current_session, true)
@@ -597,11 +606,11 @@ internal.oldfiles = function(opts)
     end, results)
   end
 
-  vim.ui.select(results, { prompt = "(Periscope) Oldfiles", format_item = tostring, kind = "file" }, function(item, _)
+  vim.ui.select(results, { prompt = "(Periscope) Oldfiles", format_item = make_path_relative, kind = "file" }, function(item, _)
     if item == nil then
       utils.__warn_no_selection "builtin.oldfiles"
     else
-      vim.cmd("edit " .. item)
+      vim.cmd("edit " .. make_path_relative(item))
     end
   end)
 end
