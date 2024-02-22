@@ -455,11 +455,11 @@ internal.quickfix = function(opts)
   end
 
   vim.ui.select(locations, { prompt = "(Periscope) Quickfix:", format_item = make_display, kind = 'quickfix' },
-    function(item)
-      if item == nil then
+    function(_, index)
+      if index == nil then
         utils.__warn_no_selection "builtin.quickfix"
       else
-        vim.cmd(string.format(':edit +call\\ cursor(%s,%s) %s', item.lnum, item.col, vim.fn.bufname(item.bufnr)))
+        vim.cmd("cc " .. tostring(index))
       end
     end)
 end
