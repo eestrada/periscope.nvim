@@ -422,19 +422,12 @@ internal.commands = function(opts)
   end)
 end
 
-internal.quickfix = function(opts)
+local function qf_entry_formatter(opts)
   opts = opts or {}
   local show_line = vim.F.if_nil(opts.show_line, true)
   local hidden = utils.is_path_hidden(opts)
 
-  local qf_identifier = opts.id or vim.F.if_nil(opts.nr, "$")
-  local locations = vim.fn.getqflist({ [opts.id and "id" or "nr"] = qf_identifier, items = true }).items
-
-  if vim.tbl_isempty(locations) then
-    return
-  end
-
-  local make_display = function(entry)
+  return function(entry)
     local filename = vim.fn.bufname(entry.bufnr)
     local display_filename = utils.transform_path(opts, filename)
     local display_string = string.format("%s:%d:%d", display_filename, entry.lnum, entry.col)
@@ -453,8 +446,20 @@ internal.quickfix = function(opts)
 
     return display_string
   end
+end
 
-  vim.ui.select(locations, { prompt = "(Periscope) Quickfix:", format_item = make_display, kind = 'quickfix' },
+internal.quickfix = function(opts)
+  opts = opts or {}
+
+  local qf_identifier = opts.id or vim.F.if_nil(opts.nr, "$")
+  local locations = vim.fn.getqflist({ [opts.id and "id" or "nr"] = qf_identifier, items = true }).items
+
+  if vim.tbl_isempty(locations) then
+    return
+  end
+
+  vim.ui.select(locations,
+    { prompt = "(Periscope) Quickfix:", format_item = qf_entry_formatter(opts), kind = 'quickfix' },
     function(_, index)
       if index == nil then
         utils.__warn_no_selection "builtin.quickfix"
@@ -533,6 +538,8 @@ internal.quickfixhistory = function(opts)
 end
 
 internal.loclist = function(opts)
+  opts = opts or {}
+
   local locations = vim.fn.getloclist(0)
   local filenames = {}
   for _, value in pairs(locations) do
@@ -547,17 +554,15 @@ internal.loclist = function(opts)
     return
   end
 
-  pickers
-    .new(opts, {
-      prompt_title = "Loclist",
-      finder = finders.new_table {
-        results = locations,
-        entry_maker = opts.entry_maker or make_entry.gen_from_quickfix(opts),
-      },
-      previewer = conf.qflist_previewer(opts),
-      sorter = conf.generic_sorter(opts),
-    })
-    :find()
+  vim.ui.select(locations,
+    { prompt = "(Periscope) Loclist:", format_item = qf_entry_formatter(opts), kind = 'quickfix' },
+    function(_, index)
+      if index == nil then
+        utils.__warn_no_selection "builtin.loclist"
+      else
+        vim.cmd("ll " .. tostring(index))
+      end
+    end)
 end
 
 local function make_path_relative(p)
