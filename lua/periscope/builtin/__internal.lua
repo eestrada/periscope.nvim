@@ -1277,28 +1277,21 @@ end
 internal.filetypes = function(opts)
   local filetypes = vim.fn.getcompletion("", "filetype")
 
-  pickers
-    .new(opts, {
-      prompt_title = "Filetypes",
-      finder = finders.new_table {
-        results = filetypes,
-      },
-      sorter = conf.generic_sorter(opts),
-      attach_mappings = function(prompt_bufnr)
-        actions.select_default:replace(function()
-          local selection = action_state.get_selected_entry()
-          if selection == nil then
-            print "[periscope] Nothing currently selected"
-            return
-          end
+  opts = opts or {}
+  opts.prompt = opts.prompt or "(Periscope) Filetypes:"
+  opts.kind = opts.kind or 'filetype'
+  opts.format_item = opts.format_item or function (item)
+    return tostring(item)
+  end
 
-          actions.close(prompt_bufnr)
-          vim.cmd("setfiletype " .. selection[1])
-        end)
-        return true
-      end,
-    })
-    :find()
+  vim.ui.select(filetypes, opts,
+    function(item, _)
+      if item == nil then
+        utils.__warn_no_selection "builtin.filetypes"
+      else
+        vim.cmd("setfiletype " .. item)
+      end
+    end)
 end
 
 internal.highlights = function(opts)
